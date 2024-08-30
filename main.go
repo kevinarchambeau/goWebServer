@@ -16,6 +16,7 @@ func main() {
 		Addr: ":8080",
 	}
 	mux.Handle("/", http.FileServer(http.Dir(".")))
+	mux.Handle("assets/", http.FileServer(http.Dir("./assets/")))
 	err := http.ListenAndServe(serverConfig.Addr, mux)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
