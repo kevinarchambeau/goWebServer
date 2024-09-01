@@ -12,7 +12,7 @@ type Chirp struct {
 	Body string `json:"body"`
 }
 
-func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
+func (db *DB) createChirp(w http.ResponseWriter, req *http.Request) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
 
@@ -40,9 +40,7 @@ func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "server error")
 		return
 	}
-	db.chirps = db.currentChirpCount(chirps)
-	db.chirps++
-	id := db.chirps
+	id := db.currentChirpCount(chirps) + 1
 	responseBody := Chirp{
 		Id:   id,
 		Body: cleanString(params.Body),
@@ -51,7 +49,7 @@ func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
 
 	err = db.writeDB(chirps)
 	if err != nil {
-		log.Printf("failed to write chirps: %s", err)
+		log.Printf("failed to write db: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "server error")
 		return
 	}

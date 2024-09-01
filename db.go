@@ -10,13 +10,13 @@ import (
 )
 
 type DB struct {
-	path   string
-	mux    *sync.RWMutex
-	chirps int
+	path string
+	mux  *sync.RWMutex
 }
 
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
+	Users  map[int]User  `json:"users"`
 }
 
 func NewDB(path string) (*DB, error) {
@@ -54,6 +54,7 @@ func (db *DB) loadDB() (DBStructure, error) {
 	if len(data) == 0 {
 		return DBStructure{
 			Chirps: map[int]Chirp{},
+			Users:  map[int]User{},
 		}, nil
 	}
 	dbData := DBStructure{}
