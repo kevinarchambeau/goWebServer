@@ -24,9 +24,9 @@ func main() {
 		fileserverHits: 0,
 	}
 	mux.Handle("GET /app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
-	mux.HandleFunc("GET /healthz", healthz)
-	mux.HandleFunc("/reset", apiCfg.resetCount)
-	mux.HandleFunc("GET /metrics", apiCfg.getCount)
+	mux.HandleFunc("GET /api/healthz", healthz)
+	mux.HandleFunc("/api/reset", apiCfg.resetCount)
+	mux.HandleFunc("GET /api/metrics", apiCfg.getCount)
 	err := http.ListenAndServe(serverConfig.Addr, mux)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
