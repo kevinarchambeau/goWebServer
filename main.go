@@ -25,8 +25,8 @@ func main() {
 	}
 	mux.Handle("GET /app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
 	mux.HandleFunc("GET /api/healthz", healthz)
-	mux.HandleFunc("/api/reset", apiCfg.resetCount)
-	mux.HandleFunc("GET /api/metrics", apiCfg.getCount)
+	mux.HandleFunc("GET /api/reset", apiCfg.resetCount)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.getCount)
 	err := http.ListenAndServe(serverConfig.Addr, mux)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -55,7 +55,8 @@ func (cfg *apiConfig) resetCount(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) getCount(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	template := "<html>\n\n<body>\n    <h1>Welcome, Chirpy Admin</h1>\n    <p>Chirpy has been visited %d times!</p>\n</body>\n\n</html>"
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Hits: %v", cfg.fileserverHits)
+	fmt.Fprintf(w, template, cfg.fileserverHits)
 }
