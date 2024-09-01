@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"log"
@@ -9,8 +10,9 @@ import (
 )
 
 type DB struct {
-	path string
-	mux  *sync.RWMutex
+	path   string
+	mux    *sync.RWMutex
+	chirps int
 }
 
 type DBStructure struct {
@@ -41,5 +43,40 @@ func (db *DB) ensureDB() error {
 		return err
 	}
 
+	return nil
+}
+
+func (db *DB) loadDB() (DBStructure, error) {
+	data, err := os.ReadFile(db.path)
+	if err != nil {
+		return DBStructure{}, err
+	}
+	if len(data) == 0 {
+		return DBStructure{
+			Chirps: map[int]Chirp{},
+		}, nil
+	}
+	dbData := DBStructure{}
+	err = json.Unmarshal(data, &dbData)
+	if err != nil {
+		log.Printf("Error decoding db file: %s", err)
+		return DBStructure{}, err
+	}
+
+	return dbData, nil
+}
+
+func (db *DB) writeDB(dbStructure DBStructure) error {
+	data, err := json.Marshal(dbStructure)
+	if err != nil {
+		log.Printf("Error marshalling: %s", err)
+		return err
+	}
+
+	err = os.WriteFile(db.path, data, 0666)
+	if err != nil {
+		log.Printf("Error writing file: %s", err)
+		return err
+	}
 	return nil
 }
