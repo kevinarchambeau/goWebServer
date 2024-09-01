@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 )
 
 type Server struct {
@@ -70,12 +72,8 @@ func validateChirp(w http.ResponseWriter, req *http.Request) {
 		Body string `json:"body"`
 	}
 
-	type errorReturnVals struct {
-		Error string `json:"error"`
-	}
-
 	type returnVals struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -89,21 +87,25 @@ func validateChirp(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	if len(params.Body) > 140 {
-		responseBody := errorReturnVals{
-			Error: "message is too long",
-		}
-		data, err := json.Marshal(responseBody)
-		if err != nil {
-			log.Printf("Error marshalling: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(data)
+		respondWithError(w, 400, "message is too long")
 		return
 	}
+
 	responseBody := returnVals{
-		Valid: true,
+		CleanedBody: cleanString(params.Body),
+	}
+
+	respondWithJSON(w, 200, responseBody)
+
+}
+
+func respondWithError(w http.ResponseWriter, code int, msg string) {
+	type errorReturnVals struct {
+		Error string `json:"error"`
+	}
+
+	responseBody := errorReturnVals{
+		Error: msg,
 	}
 	data, err := json.Marshal(responseBody)
 	if err != nil {
@@ -111,7 +113,32 @@ func validateChirp(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(code)
 	w.Write(data)
+
+}
+
+func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshalling: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(code)
+	w.Write(data)
+}
+
+func cleanString(text string) string {
+	naughty := []string{"kerfuffle", "sharbert", "fornax"}
+	words := strings.Split(text, " ")
+	for i, word := range words {
+		if slices.Contains(naughty, strings.ToLower(word)) {
+			words[i] = "****"
+		}
+	}
+
+	return strings.Join(words, " ")
 }
