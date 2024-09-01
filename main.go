@@ -24,7 +24,6 @@ func main() {
 		fileserverHits: 0,
 	}
 	mux.Handle("GET /app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
-	mux.Handle("GET app/assets/", http.StripPrefix("/app", http.FileServer(http.Dir("./assets/"))))
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("/reset", apiCfg.resetCount)
 	mux.HandleFunc("GET /metrics", apiCfg.getCount)
