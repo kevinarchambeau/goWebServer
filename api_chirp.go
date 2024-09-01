@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type Chirp struct {
@@ -27,7 +28,6 @@ func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	if len(params.Body) > 140 {
 		respondWithError(w, http.StatusBadRequest, "message is too long")
@@ -67,8 +67,33 @@ func (db *DB) getAllChirps(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	respondWithJSON(w, 200, chirps)
+}
+
+func (db *DB) getChirp(w http.ResponseWriter, req *http.Request) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	chirps, err := db.loadDB()
+	if err != nil {
+		log.Printf("failed to get chirps: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+
+	id, err := strconv.Atoi(req.PathValue("chirpID"))
+	if err != nil {
+		log.Printf("failed to convert id to int: %s", err)
+		respondWithError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+
+	if data, ok := chirps.Chirps[id]; ok {
+		respondWithJSON(w, http.StatusOK, data)
+		return
+	}
+
+	respondWithError(w, http.StatusNotFound, "Id does not exist")
 }
 
 func (db *DB) currentChirpCount(chirps DBStructure) int {
