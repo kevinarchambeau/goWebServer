@@ -35,13 +35,12 @@ func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
 	}
 
 	chirps, err := db.loadDB()
-	db.chirps = db.currentChirpCount(chirps)
-
 	if err != nil {
 		log.Printf("failed to get chirps: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "server error")
 		return
 	}
+	db.chirps = db.currentChirpCount(chirps)
 	db.chirps++
 	id := db.chirps
 	responseBody := Chirp{
@@ -49,6 +48,7 @@ func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
 		Body: cleanString(params.Body),
 	}
 	chirps.Chirps[id] = responseBody
+
 	err = db.writeDB(chirps)
 	if err != nil {
 		log.Printf("failed to write chirps: %s", err)
@@ -59,8 +59,16 @@ func (db *DB) chirp(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusCreated, responseBody)
 }
 
-func (db *DB) getChirps(w http.ResponseWriter, req *http.Request) {
+func (db *DB) getAllChirps(w http.ResponseWriter, req *http.Request) {
+	chirps, err := db.GetChirps()
+	if err != nil {
+		log.Printf("failed to get chirps: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "server error")
+		return
+	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	respondWithJSON(w, 200, chirps)
 }
 
 func (db *DB) currentChirpCount(chirps DBStructure) int {

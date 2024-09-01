@@ -32,8 +32,8 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getCount)
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetCount)
-	mux.HandleFunc("POST /api/chirp", db.chirp)
-	mux.HandleFunc("GET /api/chirps", db.getChirps)
+	mux.HandleFunc("POST /api/chirps", db.chirp)
+	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
 	http.ListenAndServe(serverConfig.Addr, mux)
 
 }

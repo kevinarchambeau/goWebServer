@@ -80,3 +80,20 @@ func (db *DB) writeDB(dbStructure DBStructure) error {
 	}
 	return nil
 }
+
+func (db *DB) GetChirps() ([]Chirp, error) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	chirps, err := db.loadDB()
+	if err != nil {
+		log.Printf("failed to get chirps: %s", err)
+		return []Chirp{}, err
+	}
+	chirpsSlice := []Chirp{}
+	for _, chirp := range chirps.Chirps {
+		chirpsSlice = append(chirpsSlice, chirp)
+	}
+
+	return chirpsSlice, nil
+}
