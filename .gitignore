@@ -26,5 +26,5 @@ go.work.sum
 
 .idea
 goWebServer
-
+out
 database.json

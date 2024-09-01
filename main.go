@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Server struct {
@@ -15,6 +17,16 @@ type apiConfig struct {
 }
 
 func main() {
+	dbFile := "database.json"
+	dbg := flag.Bool("debug", false, "Enable debug mode")
+	flag.Parse()
+	if *dbg {
+		err := os.Remove(dbFile)
+		if err != nil {
+			log.Fatal("Couldn't delete db file")
+		}
+	}
+
 	mux := http.NewServeMux()
 	serverConfig := Server{
 		Addr: ":8080",
@@ -23,14 +35,10 @@ func main() {
 		fileserverHits: 0,
 	}
 
-	db, err := NewDB("database.json")
+	db, err := NewDB(dbFile)
 	if err != nil {
 		log.Fatal("Can't connect to db")
 	}
-	//UsersDb, err := NewDB("users.json")
-	//if err != nil {
-	//	log.Fatal("Can't connect to db")
-	//}
 
 	mux.Handle("GET /app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getCount)
