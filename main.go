@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -23,13 +23,17 @@ func main() {
 		fileserverHits: 0,
 	}
 
+	db, err := NewDB("database.json")
+	if err != nil {
+		log.Fatal("Can't connect to db")
+	}
+
 	mux.Handle("GET /app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getCount)
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetCount)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
-	err := http.ListenAndServe(serverConfig.Addr, mux)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-	}
+	mux.HandleFunc("POST /api/chirp", db.chirp)
+	mux.HandleFunc("GET /api/chirps", db.getChirps)
+	http.ListenAndServe(serverConfig.Addr, mux)
+
 }
