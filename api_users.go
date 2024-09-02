@@ -7,6 +7,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -123,7 +125,7 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 			Issuer:    "chirpy",
 			IssuedAt:  jwt.NewNumericDate(currentTime),
 			ExpiresAt: jwt.NewNumericDate(time.Unix(expireTime, 0)),
-			Subject:   string(rune(id)),
+			Subject:   strconv.Itoa(id),
 		})
 
 		signedToken, err := token.SignedString([]byte(apiCfg.jwtSecret))
@@ -141,6 +143,78 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 		respondWithJSON(w, http.StatusOK, response)
 	}
 
+}
+
+func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		db.mux.Lock()
+		defer db.mux.Unlock()
+
+		type Response struct {
+			Id    int    `json:"id"`
+			Email string `json:"email"`
+		}
+
+		claims := jwt.RegisteredClaims{}
+		token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+		parsedToken, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(apiCfg.jwtSecret), nil
+		})
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+
+		params, err := checkRequest(w, req)
+		if err != nil {
+			log.Printf("params check failed: %v", err)
+			return
+		}
+
+		stringId, _ := parsedToken.Claims.GetSubject()
+		id, _ := strconv.Atoi(stringId)
+
+		users, err := db.loadDB()
+		if err != nil {
+			log.Printf("failed to get db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
+		responseBody := Response{
+			Id:    id,
+			Email: params.Email,
+		}
+		password, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("failed to generate password: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+		oldEmail := users.Users[id].Email
+
+		users.Users[id] = User{
+			Id:       id,
+			Email:    params.Email,
+			Password: password,
+		}
+
+		// keep the email map clean, so it doesn't cause issues
+		if oldEmail != params.Email {
+			delete(users.Emails, oldEmail)
+			users.Emails[params.Email] = id
+		}
+
+		err = db.writeDB(users)
+		if err != nil {
+			log.Printf("failed to write db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
+		respondWithJSON(w, http.StatusOK, responseBody)
+
+	}
 }
 
 func checkRequest(w http.ResponseWriter, req *http.Request) (RequestParams, error) {
