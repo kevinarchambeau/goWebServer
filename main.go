@@ -8,16 +8,6 @@ import (
 	"os"
 )
 
-type Server struct {
-	Addr    string
-	Handler http.ServeMux
-}
-
-type apiConfig struct {
-	fileserverHits int
-	jwtSecret      string
-}
-
 func main() {
 	dbFile := "database.json"
 	dbg := flag.Bool("debug", false, "Enable debug mode")
@@ -40,6 +30,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		jwtSecret:      os.Getenv("JWT_SECRET"),
+		polkaKey:       os.Getenv("POLKA_KEY"),
 	}
 
 	db, err := NewDB(dbFile)

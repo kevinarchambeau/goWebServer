@@ -1,5 +1,18 @@
 package main
 
+import "net/http"
+
+type Server struct {
+	Addr    string
+	Handler http.ServeMux
+}
+
+type apiConfig struct {
+	fileserverHits int
+	jwtSecret      string
+	polkaKey       string
+}
+
 type User struct {
 	Id          int    `json:"id"`
 	Email       string `json:"email"`

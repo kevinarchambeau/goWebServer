@@ -214,59 +214,67 @@ func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Reque
 	}
 }
 
-func (db *DB) polkaWebhook(w http.ResponseWriter, req *http.Request) {
-	type requestParams struct {
-		Event string         `json:"event"`
-		Data  map[string]int `json:"data"`
-	}
+func (db *DB) polkaWebhook(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		type requestParams struct {
+			Event string         `json:"event"`
+			Data  map[string]int `json:"data"`
+		}
 
-	db.mux.Lock()
-	defer db.mux.Unlock()
+		apiKey := strings.TrimPrefix(req.Header.Get("Authorization"), "ApiKey ")
+		if apiKey != apiCfg.polkaKey {
+			respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
 
-	decoder := json.NewDecoder(req.Body)
-	params := requestParams{}
-	err := decoder.Decode(&params)
-	if err != nil {
-		log.Printf("Error decoding: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "server error")
-		return
-	}
+		db.mux.Lock()
+		defer db.mux.Unlock()
 
-	if params.Event != "user.upgraded" {
+		decoder := json.NewDecoder(req.Body)
+		params := requestParams{}
+		err := decoder.Decode(&params)
+		if err != nil {
+			log.Printf("Error decoding: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
+		if params.Event != "user.upgraded" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		users, err := db.loadDB()
+		if err != nil {
+			log.Printf("failed to get db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
+		requestUserId, ok := params.Data["user_id"]
+		if !ok {
+			respondWithError(w, http.StatusBadRequest, "user_id doesn't exist in data object")
+			return
+		}
+
+		if _, ok := users.Users[requestUserId]; !ok {
+			respondWithError(w, http.StatusBadRequest, "invalid user_id")
+			return
+		}
+
+		tempUser := users.Users[requestUserId]
+		tempUser.IsChirpyRed = true
+		users.Users[requestUserId] = tempUser
+
+		err = db.writeDB(users)
+		if err != nil {
+			log.Printf("failed to write db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
 		w.WriteHeader(http.StatusNoContent)
-		return
 	}
-
-	users, err := db.loadDB()
-	if err != nil {
-		log.Printf("failed to get db: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "server error")
-		return
-	}
-
-	requestUserId, ok := params.Data["user_id"]
-	if !ok {
-		respondWithError(w, http.StatusBadRequest, "user_id doesn't exist in data object")
-		return
-	}
-
-	if _, ok := users.Users[requestUserId]; !ok {
-		respondWithError(w, http.StatusBadRequest, "invalid user_id")
-		return
-	}
-
-	tempUser := users.Users[requestUserId]
-	tempUser.IsChirpyRed = true
-	users.Users[requestUserId] = tempUser
-
-	err = db.writeDB(users)
-	if err != nil {
-		log.Printf("failed to write db: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "server error")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func checkRequest(w http.ResponseWriter, req *http.Request) (UserRequestParams, error) {
