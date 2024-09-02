@@ -72,14 +72,32 @@ func (db *DB) createChirp(apiCfg apiConfig) func(http.ResponseWriter, *http.Requ
 }
 
 func (db *DB) getAllChirps(w http.ResponseWriter, req *http.Request) {
-	chirps, err := db.GetChirps()
+	authorIdString := req.URL.Query().Get("author_id")
+
+	allChirps, err := db.GetChirps()
 	if err != nil {
 		log.Printf("failed to get chirps: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "server error")
 		return
 	}
 
-	respondWithJSON(w, 200, chirps)
+	if authorIdString == "" {
+		respondWithJSON(w, http.StatusOK, allChirps)
+		return
+	}
+	authorId, err := strconv.Atoi(authorIdString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid author id")
+		return
+	}
+	chirps := []Chirp{}
+	for _, chirp := range allChirps {
+		if authorId == chirp.AuthorId {
+			chirps = append(chirps, chirp)
+		}
+	}
+
+	respondWithJSON(w, http.StatusOK, chirps)
 }
 
 func (db *DB) getChirp(w http.ResponseWriter, req *http.Request) {
