@@ -51,7 +51,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.getCount)
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetCount)
-	mux.HandleFunc("POST /api/chirps", db.createChirp)
+	mux.HandleFunc("POST /api/chirps", db.createChirp(apiCfg))
 	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirp)
 	mux.HandleFunc("POST /api/users", db.createUser)
