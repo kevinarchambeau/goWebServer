@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"sort"
 	"sync"
 )
 
@@ -99,9 +100,15 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 		log.Printf("failed to get chirps: %s", err)
 		return []Chirp{}, err
 	}
+	keys := []int{}
+	for k := range chirps.Chirps {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
 	chirpsSlice := []Chirp{}
-	for _, chirp := range chirps.Chirps {
-		chirpsSlice = append(chirpsSlice, chirp)
+	for _, k := range keys {
+		chirpsSlice = append(chirpsSlice, chirps.Chirps[k])
 	}
 
 	return chirpsSlice, nil

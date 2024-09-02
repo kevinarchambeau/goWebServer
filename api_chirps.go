@@ -73,6 +73,7 @@ func (db *DB) createChirp(apiCfg apiConfig) func(http.ResponseWriter, *http.Requ
 
 func (db *DB) getAllChirps(w http.ResponseWriter, req *http.Request) {
 	authorIdString := req.URL.Query().Get("author_id")
+	sort := req.URL.Query().Get("sort")
 
 	allChirps, err := db.GetChirps()
 	if err != nil {
@@ -82,9 +83,14 @@ func (db *DB) getAllChirps(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if authorIdString == "" {
-		respondWithJSON(w, http.StatusOK, allChirps)
+		if sort == "desc" {
+			respondWithJSON(w, http.StatusOK, reverseChirps(allChirps))
+		} else {
+			respondWithJSON(w, http.StatusOK, allChirps)
+		}
 		return
 	}
+
 	authorId, err := strconv.Atoi(authorIdString)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid author id")
@@ -96,8 +102,11 @@ func (db *DB) getAllChirps(w http.ResponseWriter, req *http.Request) {
 			chirps = append(chirps, chirp)
 		}
 	}
-
-	respondWithJSON(w, http.StatusOK, chirps)
+	if sort == "desc" {
+		respondWithJSON(w, http.StatusOK, reverseChirps(chirps))
+	} else {
+		respondWithJSON(w, http.StatusOK, chirps)
+	}
 }
 
 func (db *DB) getChirp(w http.ResponseWriter, req *http.Request) {
@@ -178,4 +187,13 @@ func (db *DB) deleteChirp(apiCfg apiConfig) func(http.ResponseWriter, *http.Requ
 
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func reverseChirps(allChirps []Chirp) []Chirp {
+	chirps := []Chirp{}
+	for i := len(allChirps) - 1; i >= 0; i-- {
+		chirps = append(chirps, allChirps[i])
+	}
+
+	return chirps
 }
