@@ -107,3 +107,57 @@ func (db *DB) getChirp(w http.ResponseWriter, req *http.Request) {
 
 	respondWithError(w, http.StatusNotFound, "Id does not exist")
 }
+
+func (db *DB) deleteChirp(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		db.mux.Lock()
+		defer db.mux.Unlock()
+
+		claims := jwt.RegisteredClaims{}
+		token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+		parsedToken, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(apiCfg.jwtSecret), nil
+		})
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+
+		temp, _ := parsedToken.Claims.GetSubject()
+		tokenUserId, _ := strconv.Atoi(temp)
+
+		chirps, err := db.loadDB()
+		if err != nil {
+			log.Printf("failed to get chirps: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
+		chirpId, err := strconv.Atoi(req.PathValue("chirpID"))
+		if err != nil {
+			log.Printf("failed to convert id to int: %s", err)
+			respondWithError(w, http.StatusBadRequest, "Invalid id")
+			return
+		}
+
+		if _, ok := chirps.Chirps[chirpId]; !ok {
+			respondWithError(w, http.StatusNotFound, "Id does not exist")
+			return
+		}
+
+		if tokenUserId != chirps.Chirps[chirpId].AuthorId {
+			respondWithError(w, http.StatusForbidden, "Forbidden")
+			return
+		}
+
+		delete(chirps.Chirps, chirpId)
+		err = db.writeDB(chirps)
+		if err != nil {
+			log.Printf("failed to write db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}

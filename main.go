@@ -54,6 +54,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", db.createChirp(apiCfg))
 	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirp)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", db.deleteChirp(apiCfg))
 	mux.HandleFunc("POST /api/users", db.createUser)
 	mux.HandleFunc("PUT /api/users", db.updateUser(apiCfg))
 	mux.HandleFunc("POST /api/login", db.userLogin(apiCfg))
