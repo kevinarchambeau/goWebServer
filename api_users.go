@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
+	"time"
 )
 
 type User struct {
@@ -17,16 +19,17 @@ type User struct {
 type RequestParams struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-}
-
-type Response struct {
-	Id    int    `json:"id"`
-	Email string `json:"email"`
+	Expires  int64  `json:"expires_in_seconds"`
 }
 
 func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
+
+	type Response struct {
+		Id    int    `json:"id"`
+		Email string `json:"email"`
+	}
 
 	params, err := checkRequest(w, req)
 	if err != nil {
@@ -73,39 +76,71 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusCreated, responseBody)
 }
 
-func (db *DB) userLogin(w http.ResponseWriter, req *http.Request) {
-	db.mux.RLock()
-	defer db.mux.RUnlock()
+func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		db.mux.RLock()
+		defer db.mux.RUnlock()
 
-	params, err := checkRequest(w, req)
-	if err != nil {
-		log.Printf("params check failed: %v", err)
-		return
-	}
+		type Response struct {
+			Id    int    `json:"id"`
+			Email string `json:"email"`
+			Token string `json:"token"`
+		}
 
-	users, err := db.loadDB()
-	if err != nil {
-		log.Printf("failed to get db: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "server error")
-		return
-	}
+		params, err := checkRequest(w, req)
+		if err != nil {
+			log.Printf("params check failed: %v", err)
+			return
+		}
 
-	id, ok := users.Emails[params.Email]
-	if !ok {
-		respondWithError(w, http.StatusBadRequest, "invalid request")
-		return
-	}
+		users, err := db.loadDB()
+		if err != nil {
+			log.Printf("failed to get db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
 
-	result := bcrypt.CompareHashAndPassword(users.Users[id].Password, []byte(params.Password))
-	if result == nil {
+		id, ok := users.Emails[params.Email]
+		if !ok {
+			respondWithError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+
+		result := bcrypt.CompareHashAndPassword(users.Users[id].Password, []byte(params.Password))
+		if result != nil {
+			respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+			return
+		}
+
+		currentTime := time.Now()
+		// default
+		expireTime := currentTime.Unix() + 86400
+		if params.Expires < 86400 && params.Expires > 0 {
+			expireTime = currentTime.Unix() + params.Expires
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+			Issuer:    "chirpy",
+			IssuedAt:  jwt.NewNumericDate(currentTime),
+			ExpiresAt: jwt.NewNumericDate(time.Unix(expireTime, 0)),
+			Subject:   string(rune(id)),
+		})
+
+		signedToken, err := token.SignedString([]byte(apiCfg.jwtSecret))
+		if err != nil {
+			log.Printf("failed to sign token: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
 		response := Response{
 			Id:    id,
 			Email: users.Users[id].Email,
+			Token: signedToken,
 		}
 		respondWithJSON(w, http.StatusOK, response)
-	} else {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 	}
+
 }
 
 func checkRequest(w http.ResponseWriter, req *http.Request) (RequestParams, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ type Server struct {
 
 type apiConfig struct {
 	fileserverHits int
+	jwtSecret      string
 }
 
 func main() {
@@ -26,6 +28,7 @@ func main() {
 			log.Fatal("Couldn't delete db file")
 		}
 	}
+	godotenv.Load()
 
 	mux := http.NewServeMux()
 	serverConfig := Server{
@@ -33,6 +36,7 @@ func main() {
 	}
 	apiCfg := apiConfig{
 		fileserverHits: 0,
+		jwtSecret:      os.Getenv("JWT_SECRET"),
 	}
 
 	db, err := NewDB(dbFile)
@@ -48,7 +52,7 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirp)
 	mux.HandleFunc("POST /api/users", db.createUser)
-	mux.HandleFunc("POST /api/login", db.userLogin)
+	mux.HandleFunc("POST /api/login", db.userLogin(apiCfg))
 	http.ListenAndServe(serverConfig.Addr, mux)
 
 }
