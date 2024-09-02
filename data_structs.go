@@ -1,9 +1,10 @@
 package main
 
 type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password []byte
+	Id          int    `json:"id"`
+	Email       string `json:"email"`
+	Password    []byte
+	IsChirpyRed bool `json:"is_chirpy_red"`
 }
 
 type RefreshToken struct {

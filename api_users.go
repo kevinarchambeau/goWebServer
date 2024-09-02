@@ -18,14 +18,15 @@ type RequestParams struct {
 	Expires  int64  `json:"expires_in_seconds"`
 }
 
+type Response struct {
+	Id          int    `json:"id"`
+	Email       string `json:"email"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
+}
+
 func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
-
-	type Response struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
-	}
 
 	params, err := checkRequest(w, req)
 	if err != nil {
@@ -46,8 +47,9 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	users.UserId++
 	id := users.UserId
 	responseBody := Response{
-		Id:    id,
-		Email: params.Email,
+		Id:          id,
+		Email:       params.Email,
+		IsChirpyRed: false,
 	}
 	password, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -56,9 +58,10 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	users.Users[id] = User{
-		Id:       id,
-		Email:    params.Email,
-		Password: password,
+		Id:          id,
+		Email:       params.Email,
+		Password:    password,
+		IsChirpyRed: false,
 	}
 	users.Emails[responseBody.Email] = id
 
@@ -145,11 +148,6 @@ func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Reque
 		db.mux.Lock()
 		defer db.mux.Unlock()
 
-		type Response struct {
-			Id    int    `json:"id"`
-			Email string `json:"email"`
-		}
-
 		claims := jwt.RegisteredClaims{}
 		token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 		parsedToken, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
@@ -177,8 +175,9 @@ func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Reque
 		}
 
 		responseBody := Response{
-			Id:    id,
-			Email: params.Email,
+			Id:          id,
+			Email:       params.Email,
+			IsChirpyRed: users.Users[id].IsChirpyRed,
 		}
 		password, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.DefaultCost)
 		if err != nil {
@@ -189,9 +188,10 @@ func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Reque
 		oldEmail := users.Users[id].Email
 
 		users.Users[id] = User{
-			Id:       id,
-			Email:    params.Email,
-			Password: password,
+			Id:          id,
+			Email:       params.Email,
+			Password:    password,
+			IsChirpyRed: users.Users[id].IsChirpyRed,
 		}
 
 		// keep the email map clean, so it doesn't cause issues
