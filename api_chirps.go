@@ -11,12 +11,12 @@ import (
 
 func (db *DB) createChirp(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		db.mux.Lock()
-		defer db.mux.Unlock()
-
-		type parameters struct {
+		type requestParams struct {
 			Body string `json:"body"`
 		}
+
+		db.mux.Lock()
+		defer db.mux.Unlock()
 
 		claims := jwt.RegisteredClaims{}
 		token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
@@ -29,7 +29,7 @@ func (db *DB) createChirp(apiCfg apiConfig) func(http.ResponseWriter, *http.Requ
 		}
 
 		decoder := json.NewDecoder(req.Body)
-		params := parameters{}
+		params := requestParams{}
 		err = decoder.Decode(&params)
 		if err != nil {
 			log.Printf("Error decoding: %s", err)

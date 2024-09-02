@@ -38,12 +38,12 @@ func (db *DB) revokeRefresh(w http.ResponseWriter, req *http.Request) {
 
 func (db *DB) refresh(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		db.mux.Lock()
-		defer db.mux.Unlock()
-
 		type Response struct {
 			Token string `json:"token"`
 		}
+
+		db.mux.Lock()
+		defer db.mux.Unlock()
 
 		requestToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 

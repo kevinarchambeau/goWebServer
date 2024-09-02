@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type RequestParams struct {
+type UserRequestParams struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Expires  int64  `json:"expires_in_seconds"`
@@ -77,15 +77,15 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 
 func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		db.mux.Lock()
-		defer db.mux.Unlock()
-
 		type Response struct {
 			Id           int    `json:"id"`
 			Email        string `json:"email"`
 			Token        string `json:"token"`
 			RefreshToken string `json:"refresh_token"`
 		}
+
+		db.mux.Lock()
+		defer db.mux.Unlock()
 
 		params, err := checkRequest(w, req)
 		if err != nil {
@@ -212,23 +212,78 @@ func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Reque
 	}
 }
 
-func checkRequest(w http.ResponseWriter, req *http.Request) (RequestParams, error) {
+func (db *DB) polkaWebhook(w http.ResponseWriter, req *http.Request) {
+	type requestParams struct {
+		Event string         `json:"event"`
+		Data  map[string]int `json:"data"`
+	}
+
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
 	decoder := json.NewDecoder(req.Body)
-	params := RequestParams{}
+	params := requestParams{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	users, err := db.loadDB()
+	if err != nil {
+		log.Printf("failed to get db: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+
+	requestUserId, ok := params.Data["user_id"]
+	if !ok {
+		respondWithError(w, http.StatusBadRequest, "user_id doesn't exist in data object")
+		return
+	}
+
+	if _, ok := users.Users[requestUserId]; !ok {
+		respondWithError(w, http.StatusBadRequest, "invalid user_id")
+		return
+	}
+
+	tempUser := users.Users[requestUserId]
+	tempUser.IsChirpyRed = true
+	users.Users[requestUserId] = tempUser
+
+	err = db.writeDB(users)
+	if err != nil {
+		log.Printf("failed to write db: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func checkRequest(w http.ResponseWriter, req *http.Request) (UserRequestParams, error) {
+	decoder := json.NewDecoder(req.Body)
+	params := UserRequestParams{}
 	err := decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		return RequestParams{}, err
+		return UserRequestParams{}, err
 	}
 
 	if params.Email == "" {
 		respondWithError(w, http.StatusBadRequest, "no email address provided")
-		return RequestParams{}, errors.New("no email address provided")
+		return UserRequestParams{}, errors.New("no email address provided")
 	}
 	if params.Password == "" {
 		respondWithError(w, http.StatusBadRequest, "password can't be blank")
-		return RequestParams{}, errors.New("blank password")
+		return UserRequestParams{}, errors.New("blank password")
 	}
 
 	return params, nil
