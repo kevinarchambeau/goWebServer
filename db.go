@@ -15,11 +15,12 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps  map[int]Chirp  `json:"chirps"`
-	Users   map[int]User   `json:"users"`
-	Emails  map[string]int `json:"emails"`
-	ChirpId int            `json:"chirpId"`
-	UserId  int            `json:"userId"`
+	Chirps        map[int]Chirp           `json:"chirps"`
+	Users         map[int]User            `json:"users"`
+	Emails        map[string]int          `json:"emails"`
+	ChirpId       int                     `json:"chirpId"`
+	UserId        int                     `json:"userId"`
+	RefreshTokens map[string]RefreshToken `json:"refreshTokens"`
 }
 
 func NewDB(path string) (*DB, error) {
@@ -56,11 +57,12 @@ func (db *DB) loadDB() (DBStructure, error) {
 	}
 	if len(data) == 0 {
 		return DBStructure{
-			Chirps:  map[int]Chirp{},
-			Users:   map[int]User{},
-			Emails:  map[string]int{},
-			ChirpId: 0,
-			UserId:  0,
+			Chirps:        map[int]Chirp{},
+			Users:         map[int]User{},
+			Emails:        map[string]int{},
+			ChirpId:       0,
+			UserId:        0,
+			RefreshTokens: map[string]RefreshToken{},
 		}, nil
 	}
 	dbData := DBStructure{}

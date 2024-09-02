@@ -12,12 +12,6 @@ import (
 	"time"
 )
 
-type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email"`
-	Password []byte
-}
-
 type RequestParams struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -80,13 +74,14 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 
 func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		db.mux.RLock()
-		defer db.mux.RUnlock()
+		db.mux.Lock()
+		defer db.mux.Unlock()
 
 		type Response struct {
-			Id    int    `json:"id"`
-			Email string `json:"email"`
-			Token string `json:"token"`
+			Id           int    `json:"id"`
+			Email        string `json:"email"`
+			Token        string `json:"token"`
+			RefreshToken string `json:"refresh_token"`
 		}
 
 		params, err := checkRequest(w, req)
@@ -135,10 +130,24 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
+		refreshToken := generateRefreshToken()
+		users.RefreshTokens[refreshToken] = RefreshToken{
+			UserId:     id,
+			Expiration: currentTime.Unix() + 5184000,
+		}
+
+		err = db.writeDB(users)
+		if err != nil {
+			log.Printf("failed to write db: %s", err)
+			respondWithError(w, http.StatusInternalServerError, "server error")
+			return
+		}
+
 		response := Response{
-			Id:    id,
-			Email: users.Users[id].Email,
-			Token: signedToken,
+			Id:           id,
+			Email:        users.Users[id].Email,
+			Token:        signedToken,
+			RefreshToken: refreshToken,
 		}
 		respondWithJSON(w, http.StatusOK, response)
 	}
@@ -215,6 +224,10 @@ func (db *DB) updateUser(apiCfg apiConfig) func(http.ResponseWriter, *http.Reque
 		respondWithJSON(w, http.StatusOK, responseBody)
 
 	}
+}
+
+func (db *DB) revokeRefresh(w http.ResponseWriter, req *http.Request) {
+
 }
 
 func checkRequest(w http.ResponseWriter, req *http.Request) (RequestParams, error) {

@@ -7,11 +7,6 @@ import (
 	"strconv"
 )
 
-type Chirp struct {
-	Id   int    `json:"id"`
-	Body string `json:"body"`
-}
-
 func (db *DB) createChirp(w http.ResponseWriter, req *http.Request) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
