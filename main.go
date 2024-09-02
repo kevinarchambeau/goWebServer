@@ -28,7 +28,10 @@ func main() {
 			log.Fatal("Couldn't delete db file")
 		}
 	}
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Couldn't load env file")
+	}
 
 	mux := http.NewServeMux()
 	serverConfig := Server{
