@@ -80,6 +80,7 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 		type Response struct {
 			Id           int    `json:"id"`
 			Email        string `json:"email"`
+			IsChirpyRed  bool   `json:"is_chirpy_red"`
 			Token        string `json:"token"`
 			RefreshToken string `json:"refresh_token"`
 		}
@@ -135,6 +136,7 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 		response := Response{
 			Id:           id,
 			Email:        users.Users[id].Email,
+			IsChirpyRed:  users.Users[id].IsChirpyRed,
 			Token:        token,
 			RefreshToken: refreshToken,
 		}
