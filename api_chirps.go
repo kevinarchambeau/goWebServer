@@ -40,7 +40,8 @@ func (db *DB) createChirp(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "server error")
 		return
 	}
-	id := db.currentChirpCount(chirps) + 1
+	chirps.ChirpId++
+	id := chirps.ChirpId
 	responseBody := Chirp{
 		Id:   id,
 		Body: cleanString(params.Body),
@@ -92,8 +93,4 @@ func (db *DB) getChirp(w http.ResponseWriter, req *http.Request) {
 	}
 
 	respondWithError(w, http.StatusNotFound, "Id does not exist")
-}
-
-func (db *DB) currentChirpCount(chirps DBStructure) int {
-	return len(chirps.Chirps)
 }
