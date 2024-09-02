@@ -51,7 +51,7 @@ func main() {
 	mux.HandleFunc("POST /api/login", db.userLogin(apiCfg))
 	mux.HandleFunc("POST /api/revoke", db.revokeRefresh)
 	mux.HandleFunc("POST /api/refresh", db.refresh(apiCfg))
-	mux.HandleFunc("POST /api/polka/webhooks", db.polkaWebhook)
+	mux.HandleFunc("POST /api/polka/webhooks", db.polkaWebhook(apiCfg))
 	http.ListenAndServe(serverConfig.Addr, mux)
 
 }
