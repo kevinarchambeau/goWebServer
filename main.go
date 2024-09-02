@@ -58,6 +58,7 @@ func main() {
 	mux.HandleFunc("PUT /api/users", db.updateUser(apiCfg))
 	mux.HandleFunc("POST /api/login", db.userLogin(apiCfg))
 	mux.HandleFunc("POST /api/revoke", db.revokeRefresh)
+	mux.HandleFunc("POST /api/refresh", db.refresh(apiCfg))
 	http.ListenAndServe(serverConfig.Addr, mux)
 
 }
