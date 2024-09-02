@@ -48,6 +48,7 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", db.getAllChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", db.getChirp)
 	mux.HandleFunc("POST /api/users", db.createUser)
+	mux.HandleFunc("POST /api/login", db.userLogin)
 	http.ListenAndServe(serverConfig.Addr, mux)
 
 }

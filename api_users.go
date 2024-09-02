@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
@@ -13,41 +14,29 @@ type User struct {
 	Password []byte
 }
 
+type RequestParams struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type Response struct {
+	Id    int    `json:"id"`
+	Email string `json:"email"`
+}
+
 func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	db.mux.Lock()
 	defer db.mux.Unlock()
 
-	type parameters struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
-	type response struct {
-		Id    int    `json:"id"`
-		Email string `json:"email"`
-	}
-
-	decoder := json.NewDecoder(req.Body)
-	params := parameters{}
-	err := decoder.Decode(&params)
+	params, err := checkRequest(w, req)
 	if err != nil {
-		log.Printf("Error decoding: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	if params.Email == "" {
-		respondWithError(w, http.StatusBadRequest, "no email address provided")
-		return
-	}
-	if params.Password == "" {
-		respondWithError(w, http.StatusBadRequest, "password can't be blank")
+		log.Printf("params check failed: %v", err)
 		return
 	}
 
 	users, err := db.loadDB()
 	if err != nil {
-		log.Printf("failed to get chirps: %s", err)
+		log.Printf("failed to get db: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "server error")
 		return
 	}
@@ -57,7 +46,7 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	}
 	users.UserId++
 	id := users.UserId
-	responseBody := response{
+	responseBody := Response{
 		Id:    id,
 		Email: params.Email,
 	}
@@ -82,4 +71,61 @@ func (db *DB) createUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusCreated, responseBody)
+}
+
+func (db *DB) userLogin(w http.ResponseWriter, req *http.Request) {
+	db.mux.RLock()
+	defer db.mux.RUnlock()
+
+	params, err := checkRequest(w, req)
+	if err != nil {
+		log.Printf("params check failed: %v", err)
+		return
+	}
+
+	users, err := db.loadDB()
+	if err != nil {
+		log.Printf("failed to get db: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+
+	id, ok := users.Emails[params.Email]
+	if !ok {
+		respondWithError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	result := bcrypt.CompareHashAndPassword(users.Users[id].Password, []byte(params.Password))
+	if result == nil {
+		response := Response{
+			Id:    id,
+			Email: users.Users[id].Email,
+		}
+		respondWithJSON(w, http.StatusOK, response)
+	} else {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+	}
+}
+
+func checkRequest(w http.ResponseWriter, req *http.Request) (RequestParams, error) {
+	decoder := json.NewDecoder(req.Body)
+	params := RequestParams{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return RequestParams{}, err
+	}
+
+	if params.Email == "" {
+		respondWithError(w, http.StatusBadRequest, "no email address provided")
+		return RequestParams{}, errors.New("no email address provided")
+	}
+	if params.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "password can't be blank")
+		return RequestParams{}, errors.New("blank password")
+	}
+
+	return params, nil
 }
