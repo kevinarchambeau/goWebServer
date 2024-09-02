@@ -4,10 +4,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
@@ -53,4 +56,28 @@ func generateRefreshToken() string {
 
 	return hex.EncodeToString(b)
 
+}
+
+func (apiCfg *apiConfig) generateJWT(currentTime time.Time, expires int64, id int) string {
+
+	// default
+	expireTime := currentTime.Unix() + 3600
+	if expires < 86400 && expires > 0 {
+		expireTime = currentTime.Unix() + expires
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Issuer:    "chirpy",
+		IssuedAt:  jwt.NewNumericDate(currentTime),
+		ExpiresAt: jwt.NewNumericDate(time.Unix(expireTime, 0)),
+		Subject:   strconv.Itoa(id),
+	})
+
+	signedToken, err := token.SignedString([]byte(apiCfg.jwtSecret))
+	if err != nil {
+		log.Printf("failed to sign token: %s", err)
+		return ""
+	}
+
+	return signedToken
 }

@@ -110,24 +110,10 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 		}
 
 		currentTime := time.Now()
-		// default
-		expireTime := currentTime.Unix() + 86400
-		if params.Expires < 86400 && params.Expires > 0 {
-			expireTime = currentTime.Unix() + params.Expires
-		}
 
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-			Issuer:    "chirpy",
-			IssuedAt:  jwt.NewNumericDate(currentTime),
-			ExpiresAt: jwt.NewNumericDate(time.Unix(expireTime, 0)),
-			Subject:   strconv.Itoa(id),
-		})
-
-		signedToken, err := token.SignedString([]byte(apiCfg.jwtSecret))
-		if err != nil {
-			log.Printf("failed to sign token: %s", err)
+		token := apiCfg.generateJWT(currentTime, params.Expires, id)
+		if token == "" {
 			respondWithError(w, http.StatusInternalServerError, "server error")
-			return
 		}
 
 		refreshToken := generateRefreshToken()
@@ -146,7 +132,7 @@ func (db *DB) userLogin(apiCfg apiConfig) func(http.ResponseWriter, *http.Reques
 		response := Response{
 			Id:           id,
 			Email:        users.Users[id].Email,
-			Token:        signedToken,
+			Token:        token,
 			RefreshToken: refreshToken,
 		}
 		respondWithJSON(w, http.StatusOK, response)
